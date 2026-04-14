@@ -5,12 +5,15 @@
 
 #include <QMainWindow>
 #include <QUdpSocket>
+#include <QTcpSocket>
 #include <QFileSystemModel>
 #include <QItemSelectionModel>
 #include <QSplitter>
 #include <QTreeView>
 #include <QTableView>
 #include <QLabel>
+#include <QImage>
+#include <QList>
 
 class MainWindow : public QMainWindow
 {
@@ -30,12 +33,17 @@ public:
     // Filesystem
     void updateDirectoryListing();
     void previewImage(const QString &path);
-
-    // Frame Associatations
-    void populateTable();
+    void previewImage();
 
     // Networking
     void readPendingDatagrams();
+
+    // Application Logic
+    void populateImageSamples();
+    void populateTable();
+    bool writeFrame();
+    QImage const &currentImageSample();
+    static QImage sampleImage(QImage const &image);
 
 private:
     void sendJson(const QJsonObject& obj);
@@ -58,9 +66,15 @@ private:
     QString m_root_path;
 
     // Networking
-    QUdpSocket     m_socket;
+    QUdpSocket     m_df_socket;
     QHostAddress   m_df_address;
-    qint16         m_df_port;
+    quint16        m_df_port;
     qint64         m_df_frame;
+    QTcpSocket     m_arduino_socket;
+    QHostAddress   m_arduino_address;
+    quint16        m_arduino_port;
+
+    // Application Logic
+    QList<QImage> m_image_samples;
 };
 #endif // MAIN_WINDOW_H
