@@ -6,6 +6,8 @@
 #include <QJsonArray>
 #include <QMenu>
 #include <QMenuBar>
+#include <QDirListing>
+#include <QStringList>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -16,10 +18,14 @@ MainWindow::MainWindow(QWidget *parent)
     , m_item_selection_model(std::make_unique<QItemSelectionModel>())
     , m_filesystem_model(std::make_unique<QFileSystemModel>())
     , m_root_path(QDir::homePath())
-    , m_socket()
+    , m_df_socket()
     , m_df_address(QHostAddress::LocalHost)
     , m_df_port(8888)
     , m_df_frame(0)
+    , m_arduino_socket()
+    , m_arduino_address(QHostAddress("192.168.0.101"))
+    , m_arduino_port(50505)
+    , m_image_samples()
 {
     // UI
     setupUI();
@@ -68,8 +74,8 @@ void MainWindow::setupFilesystem()
 
 void MainWindow::setupNetworking()
 {
-    m_socket.bind(m_df_address, m_df_port);
-    connect(&m_socket, &QUdpSocket::readyRead, this, &MainWindow::readPendingDatagrams);
+    m_df_socket.bind(m_df_address, m_df_port);
+    connect(&m_df_socket, &QUdpSocket::readyRead, this, &MainWindow::readPendingDatagrams);
 }
 
 void MainWindow::onNew()
@@ -86,6 +92,7 @@ void MainWindow::onOpenDirectory()
 {
     m_root_path = QFileDialog::getExistingDirectory(this);
     updateDirectoryListing();
+    populateImageSamples();
 }
 
 void MainWindow::onFileViewItemClicked(const QModelIndex &index)
@@ -108,31 +115,31 @@ void MainWindow::updateDirectoryListing()
 
 void MainWindow::previewImage(const QString &path)
 {
-    QFile file(path);
-    if (!file.exists()) {
-        return;
+    QImage image(path);
+    if (!image.isNull()) {
+        QImage scaled = image.scaledToWidth(512);
+        m_preview->setPixmap(QPixmap::fromImage(scaled));
     }
+}
 
-    if (!file.open(QIODeviceBase::ReadOnly)) {
-        return;
-    }
-
-    QPicture picture;
-    if (picture.load(&file)) {
-        m_preview->setPicture(picture);
+void MainWindow::previewImage()
+{
+    QImage const &image = currentImageSample();
+    if (!image.isNull()) {
+        m_preview->setPixmap(QPixmap::fromImage(image));
     }
 }
 
 void MainWindow::readPendingDatagrams()
 {
-    while (m_socket.hasPendingDatagrams())
+    while (m_df_socket.hasPendingDatagrams())
     {
         QByteArray datagram;
-        datagram.resize(m_socket.pendingDatagramSize());
+        datagram.resize(m_df_socket.pendingDatagramSize());
         QHostAddress sender_address;
         quint16 sender_port;
 
-        m_socket.readDatagram(datagram.data(), datagram.size(), &sender_address, &sender_port);
+        m_df_socket.readDatagram(datagram.data(), datagram.size(), &sender_address, &sender_port);
 
         if (sender_address != m_df_address || sender_port != m_df_port)
         {
@@ -149,13 +156,53 @@ void MainWindow::readPendingDatagrams()
     }
 }
 
+void MainWindow::populateImageSamples()
+{
+    m_image_samples.clear();
+    QDirListing::IteratorFlags flags = QDirListing::IteratorFlag::FilesOnly;
+    QDirListing dir(m_root_path);
+
+    for (QDirListing::DirEntry const &entry : dir) {
+        QImage image(entry.absoluteFilePath());
+        if (image.isNull()) { continue; }
+        m_image_samples.push_back(sampleImage(image));
+    }
+}
+
+QImage MainWindow::sampleImage(QImage const &image)
+{
+    return image.scaled(QSize(10, 10), Qt::IgnoreAspectRatio).convertToFormat(QImage::Format_RGB888);
+}
+
+bool MainWindow::writeFrame()
+{
+    m_arduino_socket.connectToHost(m_arduino_address, m_arduino_port);
+
+    QImage sample = currentImageSample();
+    char * bits = reinterpret_cast<char *>(sample.bits());
+    qsizetype length = sample.sizeInBytes();
+    qsizetype written = 0;
+
+    do {
+      written += m_arduino_socket.write(bits + written, length - written);
+    } while (written != length);
+
+    m_arduino_socket.disconnectFromHost();
+    return true;
+}
+
+QImage const &MainWindow::currentImageSample()
+{
+    return m_image_samples.at(m_df_frame % m_image_samples.count());
+}
+
 
 void MainWindow::sendJson(const QJsonObject& obj)
 {
     if (m_df_port)
     {
         QJsonDocument doc(obj);
-        m_socket.writeDatagram(doc.toJson(), m_df_address, m_df_port);
+        m_df_socket.writeDatagram(doc.toJson(), m_df_address, m_df_port);
     }
 }
 
@@ -172,9 +219,25 @@ void MainWindow::receiveEvent(const QJsonObject& obj)
         return;
     }
 
+    if (event == "position") {
+        m_df_frame = obj["frame"].toInteger();
+        previewImage();
+        writeFrame();
+        return;
+    }
+
+    if (event == "captureComplete") {
+        m_df_frame = obj["frame"].toInteger();
+        previewImage();
+        writeFrame();
+        return;
+    }
+
     if (event == "viewFrame")
     {
         m_df_frame = obj["frame"].toInteger();
+        previewImage();
+        writeFrame();
         return;
     }
 }
