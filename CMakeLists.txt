@@ -24,6 +24,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(virtual_produino
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
+        filesystem_widget.h filesystem_widget.cpp
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET virtual_produino APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR

@@ -1,34 +1,48 @@
 #ifndef MAIN_WINDOW_H
 #define MAIN_WINDOW_H
 
-#include <memory>
-
 #include <QMainWindow>
-#include <QUdpSocket>
-#include <QTcpSocket>
-#include <QFileSystemModel>
-#include <QItemSelectionModel>
 #include <QSplitter>
-#include <QTreeView>
-#include <QTableView>
-#include <QLabel>
-#include <QImage>
-#include <QList>
+
+#include "filesystem_widget.h"
 
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
+private:
+    void setupUI();
+
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
 
-    // UI
+    void onOpenDirectory();
+
+private:
+    QSplitter        *m_splitter;
+    FilesystemWidget *m_filesystem_widget;
+
+};
+#endif // MAIN_WINDOW_H
+
+
+// #include <QUdpSocket>
+// #include <QTcpSocket>
+// #include <QRangeModel>
+// #include <QRangeModelAdapter>
+
+// #include <QListView>
+// #include <QLabel>
+// #include <QImage>
+// #include <QList>
+
+    /*// UI
     void onNew();
     void onOpen();
     void onOpenDirectory();
     void onFileViewItemClicked(const QModelIndex &index);
-    void onSelectionChanged(const QModelIndex &selected, const QModelIndex &deselected);
+    void onSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
 
     // Filesystem
     void updateDirectoryListing();
@@ -53,28 +67,29 @@ private:
     void setupFilesystem();
     void setupNetworking();
 
-    // UI
-    std::unique_ptr<QSplitter>  m_splitter;
-    std::unique_ptr<QTreeView>  m_tree_view;
-    std::unique_ptr<QTableView> m_table_view;
-    std::unique_ptr<QLabel>     m_preview;
+    QImage blankImage();
+    bool needMoreImages();
+    void ensureEnoughImages();
 
-    std::unique_ptr<QItemSelectionModel> m_item_selection_model;
-    std::unique_ptr<QFileSystemModel>    m_filesystem_model;
 
-    // Filesystem
-    QString m_root_path;
+    using ImageBinding = std::pair<Frame, QImage>;
+    using ImageBindingList = QList<ImageBinding>;
+    using ImageBindingsAdapter = QRangeModelAdapter<ImageBindingList>;
 
-    // Networking
+    QString          m_root_path;
+    ImageBindingList m_image_bindings;
+
+    std::unique_ptr<QFileSystemModel>     m_filesystem_model;
+    std::unique_ptr<ImageBindingsAdapter> m_image_bindings_adapter;
+
     QUdpSocket     m_df_socket;
     QHostAddress   m_df_address;
     quint16        m_df_port;
-    qint64         m_df_frame;
+    Frame          m_df_frame;
     QTcpSocket     m_arduino_socket;
     QHostAddress   m_arduino_address;
     quint16        m_arduino_port;
 
-    // Application Logic
-    QList<QImage> m_image_samples;
-};
-#endif // MAIN_WINDOW_H
+    std::unique_ptr<QSplitter>  m_splitter;
+*/
+
