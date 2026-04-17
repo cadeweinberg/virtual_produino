@@ -2,9 +2,11 @@
 #define MAIN_WINDOW_H
 
 #include <QMainWindow>
+#include <QSet>
 #include <QSplitter>
 
-#include "filesystem_widget.h"
+#include "file_system_panel.h"
+#include "image_selection_panel.h"
 
 class MainWindow : public QMainWindow
 {
@@ -13,16 +15,21 @@ class MainWindow : public QMainWindow
 private:
     void setupUI();
 
+    void onOpenDirectory();
+    void onAddFile(const QModelIndex &index);
+    void onAddSelected();
+
+    bool isImage(const QFileInfo &info) const;
+
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
 
-    void onOpenDirectory();
-
 private:
-    QSplitter        *m_splitter;
-    FilesystemWidget *m_filesystem_widget;
-
+    QSet<QString>        m_supported_image_extensions;
+    QSplitter           *m_splitter;
+    FileSystemPanel     *m_filesystem_panel;
+    ImageSelectionPanel *m_image_selection_panel;
 };
 #endif // MAIN_WINDOW_H
 

@@ -1,14 +1,22 @@
 #include "main_window.h"
 
 #include <QFileDialog>
+#include <QImageReader>
 #include <QMenu>
 #include <QMenuBar>
+#include <QToolBar>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
+    , m_supported_image_extensions()
     , m_splitter(new QSplitter(this))
-    , m_filesystem_widget(new FilesystemWidget(this))
+    , m_filesystem_panel(new FileSystemPanel(this))
+    , m_image_selection_panel(new ImageSelectionPanel(this))
 {
+    for (auto &&extension : QImageReader::supportedImageFormats()) {
+        m_supported_image_extensions.insert(QString::fromLatin1(extension).toLower());
+    }
+
     setupUI();
 }
 
@@ -24,7 +32,16 @@ void MainWindow::setupUI()
     QAction *actionOpenDirectory = file->addAction("Open Directory");
     connect(actionOpenDirectory, &QAction::triggered, this, &MainWindow::onOpenDirectory);
 
-    m_splitter->addWidget(m_filesystem_widget);
+    QToolBar *tools = new QToolBar(this);
+    QAction *addSelection = new QAction(tr("Add Selected"), this);
+    connect(addSelection, &QAction::triggered, this, &MainWindow::onAddSelected);
+    tools->addAction(addSelection);
+    addToolBar(tools);
+
+    connect(m_filesystem_panel->view(), &QTreeView::doubleClicked, this, &MainWindow::onAddFile);
+
+    m_splitter->addWidget(m_filesystem_panel);
+    m_splitter->addWidget(m_image_selection_panel);
     // #NOTE: global configuration/preferences object? for setting/getting ip-addresses etc?
 
     setCentralWidget(m_splitter);
@@ -33,10 +50,53 @@ void MainWindow::setupUI()
 void MainWindow::onOpenDirectory()
 {
     QString caption     = "Open a Directory";
-    QString root_path   = m_filesystem_widget->getRootPath();
+    QString root_path   = m_filesystem_panel->getRootPath();
     const QString &path = QFileDialog::getExistingDirectory(this, caption, root_path);
-    m_filesystem_widget->setRootPath(path);
+    m_filesystem_panel->setRootPath(path);
 }
+
+void MainWindow::onAddFile(const QModelIndex &index)
+{
+    QFileInfo info = m_filesystem_panel->model()->fileInfo(index);
+    if (!info.isFile()) { return; }
+    if (!isImage(info)) { return; }
+    m_image_selection_panel->model()->addFiles({info});
+}
+
+void MainWindow::onAddSelected()
+{
+    QVector<QFileInfo> files;
+    const auto indexes = m_filesystem_panel->selectionModel()->selectedRows();
+
+    for (const QModelIndex &idx : indexes) {
+        QFileInfo info = m_filesystem_panel->model()->fileInfo(idx);
+        if (!info.isFile()) continue;
+        if (!isImage(info)) continue;
+
+        files.push_back(info);
+    }
+
+    m_image_selection_panel->model()->addFiles(files);
+}
+
+bool MainWindow::isImage(const QFileInfo &info) const
+{
+    return m_supported_image_extensions.contains(info.suffix());
+}
+
+/*
+ *     QVector<QFileInfo> files;
+    const auto indexes = m_filesystem_panel->selectionModel()->selectedRows();
+
+    for (const QModelIndex &idx : indexes) {
+        QFileInfo fi = m_filesystem_panel->model()->fileInfo(idx);
+        if (!fi.isFile()) continue;
+        // if (!isImage(fi)) continue; // optional filter
+        files.push_back(fi);
+    }
+
+    m_image_selection_panel->model()->addFiles(files);
+*/
 
 //
 // #include <QJsonDocument>
