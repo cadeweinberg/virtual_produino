@@ -1,6 +1,8 @@
 #ifndef IMAGE_SELECTION_H
 #define IMAGE_SELECTION_H
 
+#include <optional>
+
 #include <QAbstractListModel>
 #include <QFileIconProvider>
 #include <QFileInfo>
@@ -11,11 +13,14 @@ class ImageSelection : public QAbstractListModel
     Q_OBJECT
 public:
     struct Binding {
-        quint64 order;
+        qint64 order;
         QFileInfo info;
 
-        Binding(quint64 order, const QFileInfo& info)
+        Binding(qint64 order, const QFileInfo& info)
             : order(order), info(info) {}
+
+        QJsonObject toJSON() const;
+        static std::optional<Binding> fromJSON(const QJsonObject &json);
     };
 
     enum Roles {
@@ -24,7 +29,9 @@ public:
     };
 
     explicit ImageSelection(QObject * parent = nullptr);
+    explicit ImageSelection(const QJsonObject &json, QObject *parent = nullptr);
 
+    QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole);
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role) const override;
     bool removeRows(int row, int count, const QModelIndex &parent = QModelIndex()) override;
@@ -54,6 +61,9 @@ public:
     void addFile(const QFileInfo &info);
     void addFiles(const QVector<QFileInfo> &files);
     const QVector<Binding> &files() const { return m_files; }
+
+    QJsonObject toJSON() const;
+    void addJson(const QJsonObject &json);
 
 private:
     void renumber();

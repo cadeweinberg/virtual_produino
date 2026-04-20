@@ -29,8 +29,12 @@ void MainWindow::setupUI()
 {
     QMenuBar      *menu    = menuBar();
     QMenu         *file    = menu->addMenu("File");
+    QAction *actionOpen = file->addAction("Open");
+    connect(actionOpen, &QAction::triggered, this, &MainWindow::onOpen);
     QAction *actionOpenDirectory = file->addAction("Open Directory");
     connect(actionOpenDirectory, &QAction::triggered, this, &MainWindow::onOpenDirectory);
+    QAction *actionSave = file->addAction("Save");
+    connect(actionSave, &QAction::triggered, this, &MainWindow::onSave);
 
     QToolBar *tools = new QToolBar(this);
     QAction *addSelection = new QAction(tr("Add Selected"), this);
@@ -47,12 +51,56 @@ void MainWindow::setupUI()
     setCentralWidget(m_splitter);
 }
 
+void MainWindow::onOpen()
+{
+    QString caption = "Open an Existing Listing";
+    QString root_path = m_filesystem_panel->getRootPath();
+    QString filter = "JSON files (*.json)";
+    QString path = QFileDialog::getOpenFileName(this, caption, root_path, filter);
+
+    QFile file(path);
+    if (!file.exists()) { return; }
+    if (!file.open(QIODevice::ReadOnly)) { return; }
+    QByteArray contents = file.readAll();
+    file.close();
+
+    QJsonParseError error;
+    QJsonDocument document = QJsonDocument::fromJson(contents, &error);
+    if (error.error != QJsonParseError::NoError) {
+        return;
+    }
+
+    m_image_selection_panel->model()->addJson(document.object());
+}
+
 void MainWindow::onOpenDirectory()
 {
     QString caption     = "Open a Directory";
     QString root_path   = m_filesystem_panel->getRootPath();
     const QString &path = QFileDialog::getExistingDirectory(this, caption, root_path);
     m_filesystem_panel->setRootPath(path);
+}
+
+void MainWindow::onSave()
+{
+    // populate file with contents of list (toJSON)
+    // write file.
+    QString caption = "Save current Listing";
+    QString root_path = m_filesystem_panel->getRootPath();
+    QString filter = "JSON Files (*.json)";
+    QString path = QFileDialog::getSaveFileName(this, caption, root_path, filter);
+
+    QJsonObject json = m_image_selection_panel->model()->toJSON();
+    QJsonDocument document(json);
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly)) {
+        return;
+    }
+    QByteArray text = document.toJson();
+    if (file.write(text) < 0) {
+        return;
+    }
+    file.close();
 }
 
 void MainWindow::onAddFile(const QModelIndex &index)

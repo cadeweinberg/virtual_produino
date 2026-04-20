@@ -15,7 +15,9 @@ class MainWindow : public QMainWindow
 private:
     void setupUI();
 
+    void onOpen();
     void onOpenDirectory();
+    void onSave();
     void onAddFile(const QModelIndex &index);
     void onAddSelected();
 

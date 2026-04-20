@@ -4,6 +4,10 @@
 #include <QImageReader>
 #include <QMimeData>
 #include <QUrl>
+#include <QFile>
+#include <QJsonObject>
+#include <QJsonDocument>
+#include <QJsonArray>
 
 ImageSelection::ImageSelection(QObject *parent)
     : QAbstractListModel(parent)
@@ -16,6 +20,52 @@ ImageSelection::ImageSelection(QObject *parent)
     for (auto &&extension : QImageReader::supportedImageFormats()) {
         m_supported_image_extensions.insert(QString::fromLatin1(extension).toLower());
     }
+}
+
+ImageSelection::ImageSelection(const QJsonObject &json, QObject *parent)
+    : QAbstractListModel(parent)
+    , m_supported_image_extensions()
+    , m_file_icon_provider()
+    , m_files()
+{
+    for (auto &&extension : QImageReader::supportedImageFormats()) {
+        m_supported_image_extensions.insert(QString::fromLatin1(extension).toLower());
+    }
+
+    addJson(json);
+}
+
+QVariant ImageSelection::headerData(int section, Qt::Orientation orientation, int role)
+{
+    if (orientation == Qt::Horizontal) {
+        switch (role) {
+        case Qt::DisplayRole:
+            if (section == 0){
+                return QString("order");
+            }
+
+            if (section == 1) {
+                return QString("file");
+            }
+
+            [[fallthrough]];
+        default:
+            return {};
+        }
+    }
+
+    if (orientation == Qt::Vertical) {
+        const Binding &binding = m_files.at(section);
+        switch (role) {
+        case Qt::DisplayRole:
+            return QString("%1").arg(binding.order);
+        default:
+            return {};
+        }
+    }
+
+    Q_UNREACHABLE();
+    return {};
 }
 
 int ImageSelection::rowCount(const QModelIndex &parent) const
@@ -38,7 +88,7 @@ QVariant ImageSelection::data(const QModelIndex &index, int role) const
 
     switch (role) {
     case Qt::DisplayRole:
-        return QString("[%1] %2").arg(binding.order).arg(binding.info.fileName());
+        return binding.info.fileName();
     case Qt::DecorationRole:
         return m_file_icon_provider.icon(binding.info);
     case OrderRole:
@@ -136,7 +186,7 @@ bool ImageSelection::dropMimeData(const QMimeData *data, Qt::DropAction action,
     }
 
     beginInsertRows(QModelIndex(), insertRow, insertRow + toAdd.size() - 1);
-    for (quint64 i = 0; i < toAdd.size(); ++i)
+    for (qint64 i = 0; i < toAdd.size(); ++i)
         m_files.emplace(insertRow + i, 0, toAdd[i]);
     endInsertRows();
 
@@ -197,7 +247,7 @@ void ImageSelection::addFiles(const QVector<QFileInfo> &files)
 {
     if (files.isEmpty()) { return; }
 
-    quint64 order = m_files.isEmpty() ? 0 : m_files.back().order + 1;
+    qint64 order = m_files.isEmpty() ? 0 : m_files.back().order + 1;
     const int start = m_files.size();
     beginInsertRows(QModelIndex(), start, start + files.size() - 1);
     for (auto &&file : files) {
@@ -209,8 +259,79 @@ void ImageSelection::addFiles(const QVector<QFileInfo> &files)
 
 void ImageSelection::renumber()
 {
-    for (quint64 i = 0; i < m_files.size(); ++i)
+    for (qint64 i = 0; i < m_files.size(); ++i)
         m_files[i].order = i;
 
     emit dataChanged(index(0,0), index(rowCount()-1,0), { OrderRole });
+}
+
+QJsonObject ImageSelection::Binding::toJSON() const
+{
+    QJsonObject json;
+    json["order"] = order;
+    json["path"]  = info.absoluteFilePath();
+    return json;
+}
+
+std::optional<ImageSelection::Binding> ImageSelection::Binding::fromJSON(const QJsonObject &json)
+{
+    // #NOTE: I don't like this, we could end up inserting a bunch of
+    // empty list object from malformed json. I would prefer inserting nothing.
+    // if we don't see a valid filepath, we don't want to insert a binding.
+    // the order on the added elements is almost immaterial, as the user can freely
+    // reorder elements at will. If the filepath is incorrect however, that is
+    // bad data for the rest of the system, so we should stop that before we go any
+    // further. We are in a stack method, whose signature demands we construct a
+    // Binding. So lets change the signature.
+
+    qint64 order = 0;
+    if (const QJsonValue v = json["order"]; v.isDouble()) {
+        order = v.toInteger();
+    }
+
+    QString path;
+    if (const QJsonValue v = json["path"]; v.isString()) {
+        path = v.toString();
+    }
+
+    QFileInfo info(path);
+
+    if (info.isFile()) {
+        return {{order, info}};
+    }
+
+    return std::nullopt;
+}
+
+QJsonObject ImageSelection::toJSON() const
+{
+    const QList<Binding> bound = m_files;
+    QJsonObject json;
+    QJsonArray bindings;
+    for (Binding const &binding : bound) {
+        bindings.append(binding.toJSON());
+    }
+    json["bindings"] = bindings;
+    return json;
+}
+
+void ImageSelection::addJson(const QJsonObject &json)
+{
+    if (QJsonValue v = json["bindings"]; v.isArray()) {
+        QJsonArray array = v.toArray();
+        QList<Binding> temp;
+        for (auto &&value : array) {
+            auto &&bound = Binding::fromJSON(value.toObject());
+            if (bound) {
+                temp.emplaceBack(bound.value());
+            }
+        }
+
+        beginInsertRows(QModelIndex(), m_files.size(), m_files.size() + temp.size());
+        for (auto &&binding : temp) {
+            m_files.append(binding);
+        }
+        endInsertRows();
+        renumber();
+    }
 }
