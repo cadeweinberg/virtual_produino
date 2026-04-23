@@ -28,6 +28,8 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
 
         image_selection_panel.h image_selection_panel.cpp
         image_selection.h image_selection.cpp
+        dragonframe_socket.h dragonframe_socket.cpp
+        image_format.h image_format.cpp
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET virtual_produino APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR

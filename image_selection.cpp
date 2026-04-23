@@ -9,29 +9,20 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 
+#include "image_format.h"
+
 ImageSelection::ImageSelection(QObject *parent)
     : QAbstractListModel(parent)
-    , m_supported_image_extensions()
     , m_file_icon_provider()
     , m_files()
 {
-    // #TODO supported image extensions is a candidate to place into
-    // a global configuration/preferences object
-    for (auto &&extension : QImageReader::supportedImageFormats()) {
-        m_supported_image_extensions.insert(QString::fromLatin1(extension).toLower());
-    }
 }
 
 ImageSelection::ImageSelection(const QJsonObject &json, QObject *parent)
     : QAbstractListModel(parent)
-    , m_supported_image_extensions()
     , m_file_icon_provider()
     , m_files()
 {
-    for (auto &&extension : QImageReader::supportedImageFormats()) {
-        m_supported_image_extensions.insert(QString::fromLatin1(extension).toLower());
-    }
-
     addJson(json);
 }
 
@@ -181,7 +172,7 @@ bool ImageSelection::dropMimeData(const QMimeData *data, Qt::DropAction action,
         if (!url.isLocalFile()) continue;
         QFileInfo fi(url.toLocalFile());
         if (!fi.isFile()) continue;
-        if (!isImage(fi)) continue;
+        if (!ImageFormat::isSupported(fi)) continue;
         toAdd.push_back(fi);
     }
 
@@ -222,11 +213,6 @@ void ImageSelection::removeByPaths(const QStringList &paths)
         if (!paths.contains(path)) continue;
         removeRow(i);
     }
-}
-
-bool ImageSelection::isImage(const QFileInfo &info) const
-{
-    return m_supported_image_extensions.contains(info.suffix().toLower());
 }
 
 bool ImageSelection::contains(const QString &absolute_path) const

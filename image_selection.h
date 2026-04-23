@@ -56,7 +56,6 @@ public:
 
     void removeByPaths(const QStringList &paths);
 
-    bool isImage(const QFileInfo &info) const;
     bool contains(const QString&absolute_path) const;
     void addFile(const QFileInfo &info);
     void addFiles(const QVector<QFileInfo> &files);
@@ -68,7 +67,6 @@ public:
 private:
     void renumber();
 
-    QSet<QString>     m_supported_image_extensions;
     QFileIconProvider m_file_icon_provider;
     QVector<Binding>  m_files;
 };

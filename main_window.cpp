@@ -6,17 +6,14 @@
 #include <QMenuBar>
 #include <QToolBar>
 
+#include "image_format.h"
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
-    , m_supported_image_extensions()
     , m_splitter(new QSplitter(this))
     , m_filesystem_panel(new FileSystemPanel(this))
     , m_image_selection_panel(new ImageSelectionPanel(this))
 {
-    for (auto &&extension : QImageReader::supportedImageFormats()) {
-        m_supported_image_extensions.insert(QString::fromLatin1(extension).toLower());
-    }
-
     setupUI();
 }
 
@@ -107,7 +104,7 @@ void MainWindow::onAddFile(const QModelIndex &index)
 {
     QFileInfo info = m_filesystem_panel->model()->fileInfo(index);
     if (!info.isFile()) { return; }
-    if (!isImage(info)) { return; }
+    if (!ImageFormat::isSupported(info)) { return; }
     m_image_selection_panel->model()->addFiles({info});
 }
 
@@ -119,17 +116,12 @@ void MainWindow::onAddSelected()
     for (const QModelIndex &idx : indexes) {
         QFileInfo info = m_filesystem_panel->model()->fileInfo(idx);
         if (!info.isFile()) continue;
-        if (!isImage(info)) continue;
+        if (!ImageFormat::isSupported(info)) continue;
 
         files.push_back(info);
     }
 
     m_image_selection_panel->model()->addFiles(files);
-}
-
-bool MainWindow::isImage(const QFileInfo &info) const
-{
-    return m_supported_image_extensions.contains(info.suffix());
 }
 
 /*
