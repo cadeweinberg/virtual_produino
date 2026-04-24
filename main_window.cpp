@@ -13,8 +13,10 @@ MainWindow::MainWindow(QWidget *parent)
     , m_splitter(new QSplitter(this))
     , m_filesystem_panel(new FileSystemPanel(this))
     , m_image_selection_panel(new ImageSelectionPanel(this))
+    , m_dragonframe_socket(new DragonframeSocket(this))
 {
     setupUI();
+    setupNetworking();
 }
 
 MainWindow::~MainWindow()
@@ -46,6 +48,11 @@ void MainWindow::setupUI()
     // #NOTE: global configuration/preferences object? for setting/getting ip-addresses etc?
 
     setCentralWidget(m_splitter);
+}
+
+void MainWindow::setupNetworking()
+{
+    connect(m_dragonframe_socket, &QUdpSocket::readyRead, this, &MainWindow::onDragonframeRead);
 }
 
 void MainWindow::onOpen()
@@ -130,6 +137,71 @@ void MainWindow::onAddSelected()
     }
 
     m_image_selection_panel->model()->addFiles(files);
+}
+
+void MainWindow::onDragonframeRead()
+{
+    while (m_dragonframe_socket->hasPendingDatagrams())
+    {
+        QByteArray datagram;
+        datagram.resize(m_dragonframe_socket->pendingDatagramSize());
+        QHostAddress sender_address;
+        quint16 sender_port;
+
+        m_dragonframe_socket->readDatagram(datagram.data(), datagram.size(), &sender_address, &sender_port);
+
+        if (sender_address != m_dragonframe_socket->address()
+            || sender_port != m_dragonframe_socket->port())
+        {
+            m_dragonframe_socket->address(sender_address);
+            m_dragonframe_socket->port(sender_port);
+        }
+
+        QJsonDocument doc = QJsonDocument::fromJson(datagram);
+        QJsonObject   obj = doc.object();
+        if (!obj.isEmpty() && obj["event"].isString())
+        {
+            dragonframeEvent(obj);
+        }
+    }
+}
+
+void MainWindow::dragonframeEvent(const QJsonObject &json)
+{
+    QString event = json["event"].toString();
+    if (event == "hello")
+    {
+        // do handshake
+        QJsonObject response;
+        response["command"] = QString("hello");
+        response["version"] = 1.0;
+        dragonframeResponse(response);
+        return;
+    }
+
+    if (event == "position")
+    {
+
+        return;
+    }
+
+    if (event == "captureComplete")
+    {
+
+        return;
+    }
+
+    if (event == "viewFrame")
+    {
+
+        return;
+    }
+}
+
+void MainWindow::dragonframeResponse(const QJsonObject &json)
+{
+    QJsonDocument doc(json);
+    m_dragonframe_socket->writeDatagram(doc.toJson());
 }
 
 /*

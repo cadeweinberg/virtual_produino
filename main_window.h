@@ -6,6 +6,7 @@
 
 #include "file_system_panel.h"
 #include "image_selection_panel.h"
+#include "dragonframe_socket.h"
 
 class MainWindow : public QMainWindow
 {
@@ -13,12 +14,17 @@ class MainWindow : public QMainWindow
 
 private:
     void setupUI();
+    void setupNetworking();
 
     void onOpen();
     void onOpenDirectory();
     void onSave();
     void onDoubleClickFileSystemEntry(const QModelIndex &index);
     void onAddSelected();
+    void onDragonframeRead();
+
+    void dragonframeEvent(const QJsonObject &json);
+    void dragonframeResponse(const QJsonObject &json);
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
@@ -28,6 +34,7 @@ private:
     QSplitter           *m_splitter;
     FileSystemPanel     *m_filesystem_panel;
     ImageSelectionPanel *m_image_selection_panel;
+    DragonframeSocket   *m_dragonframe_socket;
 };
 #endif // MAIN_WINDOW_H
 
