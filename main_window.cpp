@@ -6,7 +6,7 @@
 #include <QMenuBar>
 #include <QToolBar>
 
-#include "image_format.h"
+#include "settings.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -39,7 +39,7 @@ void MainWindow::setupUI()
     tools->addAction(addSelection);
     addToolBar(tools);
 
-    connect(m_filesystem_panel->view(), &QTreeView::doubleClicked, this, &MainWindow::onAddFile);
+    connect(m_filesystem_panel->view(), &QTreeView::doubleClicked, this, &MainWindow::onDoubleClickFileSystemEntry);
 
     m_splitter->addWidget(m_filesystem_panel);
     m_splitter->addWidget(m_image_selection_panel);
@@ -100,12 +100,20 @@ void MainWindow::onSave()
     file.close();
 }
 
-void MainWindow::onAddFile(const QModelIndex &index)
+void MainWindow::onDoubleClickFileSystemEntry(const QModelIndex &index)
 {
-    QFileInfo info = m_filesystem_panel->model()->fileInfo(index);
-    if (!info.isFile()) { return; }
-    if (!ImageFormat::isSupported(info)) { return; }
-    m_image_selection_panel->model()->addFiles({info});
+    QFileInfo info = m_filesystem_panel->fileInfo(index);
+    if (info.isDir()) {
+        QString path = info.absoluteFilePath();
+        m_filesystem_panel->setRootPath(path);
+        return;
+    }
+
+    if (info.isFile()) {
+        if (!Settings::isImage(info)) { return; }
+        m_image_selection_panel->model()->addFiles({info});
+        return;
+    }
 }
 
 void MainWindow::onAddSelected()
@@ -116,7 +124,7 @@ void MainWindow::onAddSelected()
     for (const QModelIndex &idx : indexes) {
         QFileInfo info = m_filesystem_panel->model()->fileInfo(idx);
         if (!info.isFile()) continue;
-        if (!ImageFormat::isSupported(info)) continue;
+        if (!Settings::isImage(info)) continue;
 
         files.push_back(info);
     }

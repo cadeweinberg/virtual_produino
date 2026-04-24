@@ -2,26 +2,33 @@
 
 #include <QVBoxLayout>
 
+#include "settings.h"
+
 FileSystemPanel::FileSystemPanel(QWidget *parent)
     : QWidget{parent}
+    , m_filter(new FileSystemImageFilter(this))
     , m_model(new QFileSystemModel(this))
     , m_view(new QTreeView(this))
 {
     const QString &root_path = QDir::homePath();
     m_model->setRootPath(root_path);
-    m_model->setFilter(QDir::Filter::AllEntries | QDir::Filter::NoDotAndDotDot);
+    m_model->setFilter(QDir::Filter::AllEntries);
+    m_model->setNameFilterDisables(true);
 
-    m_view->setModel(m_model);
-    m_view->setRootIndex(m_model->index(root_path));
+    m_filter->setSourceModel(m_model);
+    m_filter->setFilterKeyColumn(0);
+    m_filter->setFilterCaseSensitivity(Qt::CaseInsensitive);
+    m_filter->setFilterRegularExpression(Settings::getIsImageRegularExpression());
+
+    m_view->setModel(m_filter);
+    m_view->setRootIndex(m_filter->mapFromSource(m_model->index(root_path)));
     m_view->setAnimated(true);
     m_view->setHeaderHidden(false);
-    m_view->setSortingEnabled(true);
+    m_view->setSortingEnabled(false);
     m_view->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_view->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_view->setDragEnabled(true);
     m_view->setDragDropMode(QAbstractItemView::DragOnly);
-
-    connect(m_view, &QTreeView::doubleClicked, this, &FileSystemPanel::select);
 
     QVBoxLayout *layout = new QVBoxLayout();
     layout->setContentsMargins(0, 0, 0, 0);
@@ -37,13 +44,15 @@ QString FileSystemPanel::getRootPath() const
 void FileSystemPanel::setRootPath(const QString &path)
 {
     m_model->setRootPath(path);
-    const QModelIndex index = m_model->index(path);
+    m_filter->setSourceModel(m_model);
+    const QModelIndex index = m_filter->mapFromSource(m_model->index(path));
     if (index.isValid()) {
         m_view->setRootIndex(index);
     }
 }
 
-void FileSystemPanel::select(const QModelIndex &index)
-{
-    selectionModel()->select(index, QItemSelectionModel::Toggle | QItemSelectionModel::Rows);
+QFileInfo FileSystemPanel::fileInfo(const QModelIndex &index) {
+    if (!index.isValid()) { return {}; }
+
+    return m_model->fileInfo(m_filter->mapToSource(index));
 }

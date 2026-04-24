@@ -9,7 +9,7 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 
-#include "image_format.h"
+#include "settings.h"
 
 ImageSelection::ImageSelection(QObject *parent)
     : QAbstractListModel(parent)
@@ -172,7 +172,7 @@ bool ImageSelection::dropMimeData(const QMimeData *data, Qt::DropAction action,
         if (!url.isLocalFile()) continue;
         QFileInfo fi(url.toLocalFile());
         if (!fi.isFile()) continue;
-        if (!ImageFormat::isSupported(fi)) continue;
+        if (!Settings::isImage(fi)) continue;
         toAdd.push_back(fi);
     }
 

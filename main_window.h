@@ -17,7 +17,7 @@ private:
     void onOpen();
     void onOpenDirectory();
     void onSave();
-    void onAddFile(const QModelIndex &index);
+    void onDoubleClickFileSystemEntry(const QModelIndex &index);
     void onAddSelected();
 
 public:
