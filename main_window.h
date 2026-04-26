@@ -3,10 +3,13 @@
 
 #include <QMainWindow>
 #include <QSplitter>
+#include <QLabel>
 
+#include "arduino_socket.h"
+#include "dragonframe_socket.h"
 #include "file_system_panel.h"
 #include "image_selection_panel.h"
-#include "dragonframe_socket.h"
+#include "image_panel.h"
 
 class MainWindow : public QMainWindow
 {
@@ -19,12 +22,15 @@ private:
     void onOpen();
     void onOpenDirectory();
     void onSave();
+    void onClickImageSelection(const QModelIndex &index);
     void onDoubleClickFileSystemEntry(const QModelIndex &index);
     void onAddSelected();
     void onDragonframeRead();
+    void onArduinoRead();
 
     void dragonframeEvent(const QJsonObject &json);
     void dragonframeResponse(const QJsonObject &json);
+    void arduinoResponse(int frame);
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
@@ -34,7 +40,9 @@ private:
     QSplitter           *m_splitter;
     FileSystemPanel     *m_filesystem_panel;
     ImageSelectionPanel *m_image_selection_panel;
+    ImagePanel          *m_image_panel;
     DragonframeSocket   *m_dragonframe_socket;
+    ArduinoSocket       *m_arduino_socket;
 };
 #endif // MAIN_WINDOW_H
 

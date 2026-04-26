@@ -25,7 +25,8 @@ public:
 
     enum Roles {
         OrderRole = Qt::UserRole + 1,
-        PathRole
+        PathRole,
+        InfoRole,
     };
 
     explicit ImageSelection(QObject * parent = nullptr);

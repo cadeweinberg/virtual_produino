@@ -86,6 +86,8 @@ QVariant ImageSelection::data(const QModelIndex &index, int role) const
         return binding.order;
     case PathRole:
         return binding.info.absoluteFilePath();
+    case InfoRole:
+        return QVariant::fromValue(binding.info);
     default:
         return {};
     }
@@ -226,7 +228,10 @@ bool ImageSelection::contains(const QString &absolute_path) const
 
 void ImageSelection::addFile(const QFileInfo &info)
 {
-
+    beginInsertRows(QModelIndex(), m_files.size(), m_files.size() + 1);
+    m_files.emplace_back(m_files.size(), info);
+    endInsertRows();
+    renumber();
 }
 
 void ImageSelection::addFiles(const QVector<QFileInfo> &files)

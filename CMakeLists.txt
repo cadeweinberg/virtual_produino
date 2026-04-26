@@ -31,6 +31,9 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         dragonframe_socket.h dragonframe_socket.cpp
         settings.h settings.cpp
         file_system_image_filter.h file_system_image_filter.cpp
+        image_panel.h image_panel.cpp
+        IDEAS.md
+        arduino_socket.h arduino_socket.cpp
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET virtual_produino APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR

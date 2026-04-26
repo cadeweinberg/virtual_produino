@@ -23,7 +23,8 @@ ImageSelectionPanel::ImageSelectionPanel(QWidget *parent)
 
     connect(m_view, &QListView::doubleClicked,
             this, &ImageSelectionPanel::remove);
-
+    connect(m_view, &QListView::clicked,
+            this, &ImageSelectionPanel::clicked);
 
     auto *delShortcut = new QShortcut(QKeySequence::Delete, m_view);
     auto *backShortcut = new QShortcut(QKeySequence::Backspace, m_view);

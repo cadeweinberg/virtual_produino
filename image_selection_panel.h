@@ -17,6 +17,9 @@ public:
     ImageSelection *model() const { return m_model; }
     QListView *view() const { return m_view; }
 
+signals:
+    void clicked(const QModelIndex &index);
+
 private:
     void remove(const QModelIndex &index);
     void removeSelection();

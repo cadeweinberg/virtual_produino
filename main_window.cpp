@@ -13,7 +13,9 @@ MainWindow::MainWindow(QWidget *parent)
     , m_splitter(new QSplitter(this))
     , m_filesystem_panel(new FileSystemPanel(this))
     , m_image_selection_panel(new ImageSelectionPanel(this))
+    , m_image_panel(new ImagePanel(512, 512, this))
     , m_dragonframe_socket(new DragonframeSocket(this))
+    , m_arduino_socket(new ArduinoSocket(this))
 {
     setupUI();
     setupNetworking();
@@ -42,9 +44,11 @@ void MainWindow::setupUI()
     addToolBar(tools);
 
     connect(m_filesystem_panel->view(), &QTreeView::doubleClicked, this, &MainWindow::onDoubleClickFileSystemEntry);
+    connect(m_image_selection_panel, &ImageSelectionPanel::clicked, this, &MainWindow::onClickImageSelection);
 
     m_splitter->addWidget(m_filesystem_panel);
     m_splitter->addWidget(m_image_selection_panel);
+    m_splitter->addWidget(m_image_panel);
     // #NOTE: global configuration/preferences object? for setting/getting ip-addresses etc?
 
     setCentralWidget(m_splitter);
@@ -107,6 +111,22 @@ void MainWindow::onSave()
     file.close();
 }
 
+void MainWindow::onClickImageSelection(const QModelIndex &index)
+{
+    if (QVariant v = m_image_selection_panel->model()->data(index, ImageSelection::InfoRole);
+            v.canConvert<QFileInfo>())
+    {
+        QFileInfo info = v.value<QFileInfo>();
+        m_image_panel->image(info);
+    }
+
+    if (QString path = m_image_selection_panel->model()->data(index, ImageSelection::PathRole).toString();
+        !path.isEmpty())
+    {
+        m_image_panel->image(path);
+    }
+}
+
 void MainWindow::onDoubleClickFileSystemEntry(const QModelIndex &index)
 {
     QFileInfo info = m_filesystem_panel->fileInfo(index);
@@ -119,6 +139,7 @@ void MainWindow::onDoubleClickFileSystemEntry(const QModelIndex &index)
     if (info.isFile()) {
         if (!Settings::isImage(info)) { return; }
         m_image_selection_panel->model()->addFiles({info});
+        m_image_panel->image(info);
         return;
     }
 }
@@ -166,6 +187,26 @@ void MainWindow::onDragonframeRead()
     }
 }
 
+void MainWindow::onArduinoRead()
+{
+    while (m_arduino_socket->hasPendingDatagrams())
+    {
+        QByteArray datagram;
+        datagram.resize(m_arduino_socket->pendingDatagramSize());
+        QHostAddress sender_address;
+        quint16 sender_port;
+
+        m_arduino_socket->readDatagram(datagram.data(), datagram.size(), &sender_address, &sender_port);
+
+        if (sender_address != m_arduino_socket->address()
+            ||  sender_port != m_arduino_socket->port())
+        {
+            m_arduino_socket->address(sender_address);
+            m_arduino_socket->port(sender_port);
+        }
+    }
+}
+
 void MainWindow::dragonframeEvent(const QJsonObject &json)
 {
     QString event = json["event"].toString();
@@ -181,19 +222,22 @@ void MainWindow::dragonframeEvent(const QJsonObject &json)
 
     if (event == "position")
     {
-
+        double frame = json["frame"].toDouble();
+        arduinoResponse(frame);
         return;
     }
 
     if (event == "captureComplete")
     {
-
+        double frame = json["frame"].toDouble();
+        arduinoResponse(frame);
         return;
     }
 
     if (event == "viewFrame")
     {
-
+        double frame = json["frame"].toDouble();
+        arduinoResponse(frame);
         return;
     }
 }
@@ -202,6 +246,23 @@ void MainWindow::dragonframeResponse(const QJsonObject &json)
 {
     QJsonDocument doc(json);
     m_dragonframe_socket->writeDatagram(doc.toJson());
+}
+
+void MainWindow::arduinoResponse(int frame)
+{
+    QModelIndex index = m_image_selection_panel->model()->index(frame);
+    if (!index.isValid()) { return; }
+    QVariant v = m_image_selection_panel->model()->data(index, ImageSelection::InfoRole);
+    if (!v.isValid()) { return; }
+    if (!v.canConvert<QFileInfo>()) { return; }
+    QFileInfo info = v.value<QFileInfo>();
+    m_image_panel->image(info);
+    QImage sample = m_image_panel->downsample(10, 10).convertToFormat(QImage::Format_RGB888);
+
+    char * bits = reinterpret_cast<char *>(sample.bits());
+    qsizetype length = sample.sizeInBytes();
+    QByteArray bytes{bits, length};
+    m_arduino_socket->writeDatagram(bytes);
 }
 
 /*
